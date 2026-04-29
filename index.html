@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LOOP — Reading Comprehension</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0a0f;--bg2:#111118;--bg3:#18181f;--surface:#1e1e28;--surface2:#252530;
+  --border:rgba(180,160,255,0.12);--border2:rgba(180,160,255,0.22);
+  --accent:#b4a0ff;--accent2:#7fd4c1;--accent3:#ff9e7a;--danger:#ff6b6b;
+  --text:#e8e4f5;--text2:#a09abf;--text3:#6a6480;
+  --mono:'Share Tech Mono',monospace;--serif:'Playfair Display',serif;--sans:'DM Sans',sans-serif;
+  --glow:0 0 20px rgba(180,160,255,0.15);
+  --correct:#7fd4c1;--wrong:#ff6b6b;--warn:#ff9e7a;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);pointer-events:none;z-index:9999;}
+
+.view{display:none;}
+.view.active{display:block;}
+
+header{
+  position:sticky;top:0;z-index:100;
+  height:56px;display:flex;align-items:center;padding:0 32px;gap:20px;
+  background:var(--bg2);border-bottom:1px solid var(--border);
+}
+.logo-mark{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:4px;}
+.header-tag{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:2px;padding:3px 8px;border:1px solid var(--border);border-radius:3px;}
+.api-status{
+  margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:1px;
+  padding:6px 12px;border:1px solid rgba(127,212,193,0.3);border-radius:4px;
+  color:var(--accent2);background:transparent;
+}
+
+#menuView{background:var(--bg);}
+.menu-bg{position:fixed;inset:0;background:radial-gradient(ellipse at 30% 50%,rgba(180,160,255,0.06) 0%,transparent 60%),radial-gradient(ellipse at 70% 20%,rgba(127,212,193,0.04) 0%,transparent 50%);pointer-events:none;z-index:0;}
+.menu-inner{position:relative;z-index:1;padding:48px 40px 80px;max-width:1200px;margin:0 auto;}
+@media(max-width:600px){.menu-inner{padding:28px 16px 60px;}}
+.menu-logo{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:4px;margin-bottom:14px;}
+.menu-title{font-family:var(--serif);font-size:clamp(36px,5vw,60px);color:var(--text);line-height:1.1;margin-bottom:8px;}
+.menu-sub{font-size:14px;color:var(--text3);font-family:var(--mono);letter-spacing:1px;margin-bottom:16px;}
+.menu-stats{display:flex;gap:32px;margin-bottom:48px;flex-wrap:wrap;}
+.mstat{display:flex;flex-direction:column;gap:3px;}
+.mstat-val{font-family:var(--mono);font-size:20px;color:var(--text);}
+.mstat-lbl{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:2px;}
+.stories-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
+@media(max-width:600px){.stories-grid{grid-template-columns:1fr;}}
+.scard{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:22px;cursor:pointer;transition:all 0.25s;position:relative;overflow:hidden;
+}
+.scard::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 60%,rgba(180,160,255,0.03));pointer-events:none;}
+.scard:hover{border-color:var(--border2);transform:translateY(-3px);box-shadow:0 8px 32px rgba(0,0,0,0.4),var(--glow);}
+.scard:hover .card-play{opacity:1;transform:translateX(0);}
+.scard.done{border-color:rgba(127,212,193,0.2);}
+.card-num{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:2px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+.card-title{font-family:var(--serif);font-size:18px;color:var(--text);margin-bottom:4px;}
+.card-setting{font-size:11px;color:var(--accent);font-family:var(--mono);letter-spacing:1px;margin-bottom:10px;}
+.card-desc{font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:14px;}
+.card-tags{display:flex;gap:6px;flex-wrap:wrap;}
+.ctag{font-size:10px;padding:3px 8px;border-radius:3px;background:rgba(180,160,255,0.08);border:1px solid var(--border);color:var(--text3);font-family:var(--mono);}
+.card-play{position:absolute;bottom:16px;right:16px;font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;opacity:0;transform:translateX(8px);transition:all 0.2s;}
+.diff-easy{background:rgba(127,212,193,0.1);color:var(--accent2);border:1px solid rgba(127,212,193,0.2);}
+.diff-med{background:rgba(255,158,122,0.1);color:var(--accent3);border:1px solid rgba(255,158,122,0.2);}
+.diff-hard{background:rgba(255,107,107,0.1);color:var(--danger);border:1px solid rgba(255,107,107,0.2);}
+.score-pill{font-family:var(--mono);font-size:9px;padding:2px 7px;border-radius:3px;background:rgba(127,212,193,0.1);border:1px solid rgba(127,212,193,0.2);color:var(--accent2);}
+
+/* STORY VIEW */
+#storyView{max-width:860px;margin:0 auto;padding:40px 32px 80px;position:relative;z-index:1;}
+.back-row{display:flex;gap:10px;align-items:center;margin-bottom:36px;flex-wrap:wrap;}
+.back{font-family:var(--mono);font-size:10px;color:var(--text3);cursor:pointer;letter-spacing:1px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;transition:all 0.2s;display:inline-block;}
+.back:hover{color:var(--text);border-color:var(--border2);}
+.resume-btn{font-family:var(--mono);font-size:10px;color:var(--accent2);cursor:pointer;letter-spacing:1px;padding:6px 10px;border:1px solid rgba(127,212,193,0.3);border-radius:4px;transition:all 0.2s;display:none;}
+.resume-btn:hover{background:rgba(127,212,193,0.08);}
+.resume-btn.vis{display:inline-block;}
+.sv-eyebrow{font-family:var(--mono);font-size:10px;color:var(--text3);letter-spacing:2px;margin-bottom:10px;display:flex;align-items:center;gap:12px;}
+.sv-title{font-family:var(--serif);font-size:clamp(26px,4vw,44px);color:var(--text);line-height:1.15;margin-bottom:10px;}
+.sv-meta{font-family:var(--mono);font-size:11px;color:var(--text3);display:flex;gap:20px;flex-wrap:wrap;margin-bottom:32px;}
+.story-box{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:36px;margin-bottom:28px;
+}
+.story-box p{font-size:16px;line-height:1.85;color:var(--text2);margin-bottom:18px;}
+.story-box p:last-child{margin-bottom:0;}
+.story-box p.drop::first-letter{font-size:3.8em;font-weight:700;float:left;line-height:0.75;margin:4px 10px 0 0;color:var(--accent);font-family:var(--serif);}
+.story-box em{color:var(--accent);font-style:normal;}
+.story-box strong{color:var(--text);font-weight:500;}
+.begin-btn{
+  width:100%;padding:15px;border-radius:8px;
+  background:rgba(180,160,255,0.08);border:1px solid var(--border2);
+  color:var(--accent);font-family:var(--mono);font-size:12px;letter-spacing:2px;
+  cursor:pointer;transition:all 0.2s;
+}
+.begin-btn:hover{background:rgba(180,160,255,0.15);box-shadow:var(--glow);}
+
+/* QUIZ VIEW */
+#quizView{max-width:760px;margin:0 auto;padding:40px 32px 80px;position:relative;z-index:1;}
+.quiz-nav{display:flex;align-items:center;gap:10px;margin-bottom:28px;flex-wrap:wrap;}
+.quiz-back-text{font-family:var(--mono);font-size:10px;color:var(--accent2);cursor:pointer;letter-spacing:1px;padding:6px 10px;border:1px solid rgba(127,212,193,0.25);border-radius:4px;transition:all 0.2s;}
+.quiz-back-text:hover{background:rgba(127,212,193,0.08);}
+.quiz-abandon{font-family:var(--mono);font-size:10px;color:var(--text3);cursor:pointer;letter-spacing:1px;padding:6px 10px;border:1px solid var(--border);border-radius:4px;transition:all 0.2s;margin-left:auto;}
+.quiz-abandon:hover{color:var(--danger);border-color:rgba(255,107,107,0.3);}
+.qprog-bar{height:2px;background:var(--border);border-radius:2px;margin-bottom:32px;overflow:hidden;}
+.qprog-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));transition:width 0.4s ease;border-radius:2px;}
+.quiz-hdr-lbl{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:2px;margin-bottom:6px;}
+.quiz-hdr-title{font-family:var(--serif);font-size:24px;color:var(--text);margin-bottom:36px;}
+
+.q-block{margin-bottom:36px;animation:qfade 0.3s ease;}
+@keyframes qfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.q-num{font-family:var(--mono);font-size:9px;color:var(--text3);letter-spacing:2px;margin-bottom:8px;}
+.q-txt{font-family:var(--serif);font-size:16px;color:var(--text);margin-bottom:16px;line-height:1.5;}
+.q-kind{font-family:var(--mono);font-size:9px;color:var(--text3);border:1px solid var(--border);padding:2px 6px;border-radius:3px;margin-left:8px;vertical-align:middle;}
+
+.opts{display:flex;flex-direction:column;gap:8px;}
+.opt{
+  display:flex;align-items:flex-start;gap:12px;padding:12px 16px;
+  background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+  cursor:pointer;transition:all 0.15s;
+}
+.opt:hover:not(.locked){background:var(--surface);border-color:var(--border2);}
+.opt.sel{background:rgba(180,160,255,0.08);border-color:var(--border2);}
+.opt.ok{background:rgba(127,212,193,0.06);border-color:rgba(127,212,193,0.3);}
+.opt.ng{background:rgba(255,107,107,0.06);border-color:rgba(255,107,107,0.3);}
+.opt.locked{cursor:default;}
+.opt-k{
+  width:22px;height:22px;border-radius:3px;flex-shrink:0;
+  background:var(--surface2);border:1px solid var(--border2);
+  display:grid;place-items:center;font-family:var(--mono);font-size:9px;color:var(--text3);
+  transition:all 0.15s;
+}
+.opt.sel .opt-k{background:rgba(180,160,255,0.15);border-color:var(--accent);color:var(--accent);}
+.opt.ok .opt-k{background:rgba(127,212,193,0.12);border-color:var(--accent2);color:var(--accent2);}
+.opt.ng .opt-k{background:rgba(255,107,107,0.1);border-color:var(--danger);color:var(--danger);}
+.opt-t{font-size:13px;color:var(--text2);line-height:1.5;padding-top:2px;}
+.opt.ok .opt-t{color:var(--accent2);}
+.opt.ng .opt-t{color:var(--danger);}
+.q-fb{
+  margin-top:8px;padding:10px 14px;background:var(--bg2);
+  border:1px solid var(--border);border-radius:5px;
+  font-family:var(--mono);font-size:11px;color:var(--text3);line-height:1.6;
+  display:none;
+}
+.q-fb.vis{display:block;}
+
+.la-wrap{margin-top:4px;}
+.la-ta{
+  width:100%;min-height:120px;padding:14px;resize:vertical;
+  background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);font-family:var(--sans);font-size:13px;line-height:1.65;
+  outline:none;transition:border-color 0.2s;
+}
+.la-ta:focus{border-color:var(--border2);}
+.la-ta:disabled{opacity:0.55;cursor:not-allowed;}
+.la-check{
+  margin-top:8px;padding:9px 18px;
+  background:rgba(180,160,255,0.08);border:1px solid var(--border2);
+  color:var(--accent);font-family:var(--mono);font-size:10px;letter-spacing:1px;
+  border-radius:5px;cursor:pointer;transition:all 0.2s;
+  display:inline-flex;align-items:center;gap:8px;
+}
+.la-check:hover:not(:disabled){background:rgba(180,160,255,0.15);}
+.la-check:disabled{opacity:0.4;cursor:not-allowed;}
+.la-fb{
+  margin-top:10px;padding:14px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:6px;font-family:var(--mono);font-size:11px;line-height:1.7;
+  display:none;
+}
+.la-fb.vis{display:block;animation:qfade 0.3s ease;}
+.la-score{font-size:16px;font-weight:700;margin-bottom:6px;}
+.la-comment{color:var(--text2);}
+
+.submit-btn{
+  width:100%;padding:14px;border-radius:8px;margin-top:24px;
+  background:rgba(180,160,255,0.08);border:1px solid var(--border2);
+  color:var(--accent);font-family:var(--mono);font-size:11px;letter-spacing:2px;
+  cursor:pointer;transition:all 0.2s;display:none;
+}
+.submit-btn.vis{display:block;}
+.submit-btn:hover{background:rgba(180,160,255,0.15);box-shadow:var(--glow);}
+
+/* RESULTS */
+#resultsView{max-width:640px;margin:0 auto;padding:60px 32px 80px;text-align:center;position:relative;z-index:1;}
+.res-ring{
+  width:110px;height:110px;border-radius:50%;margin:0 auto 24px;
+  border:1px solid var(--border2);background:rgba(180,160,255,0.08);
+  display:grid;place-items:center;
+}
+.res-score{font-family:var(--mono);font-size:34px;color:var(--text);}
+.res-title{font-family:var(--serif);font-size:26px;color:var(--text);margin-bottom:8px;}
+.res-sub{font-family:var(--mono);font-size:11px;color:var(--text3);letter-spacing:1px;margin-bottom:36px;}
+.res-breakdown{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  padding:20px;margin-bottom:28px;text-align:left;
+}
+.brow{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-family:var(--mono);font-size:11px;}
+.brow:last-child{border-bottom:none;}
+.brow-lbl{color:var(--text3);}
+.res-btns{display:flex;gap:10px;justify-content:center;}
+.rbtn{padding:10px 20px;border-radius:5px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-family:var(--mono);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all 0.18s;}
+.rbtn:hover{background:var(--surface2);border-color:var(--accent);color:var(--accent);}
+.rbtn.prim{background:var(--accent);color:var(--bg);border-color:var(--accent);}
+.rbtn.prim:hover{background:#c8b8ff;}
+
+.spin{display:inline-block;width:12px;height:12px;border:1.5px solid rgba(180,160,255,0.2);border-top-color:var(--accent);border-radius:50%;animation:sp 0.7s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg)}}
+@keyframes glitch{0%,90%,100%{transform:translate(0)}91%{transform:translate(-2px,1px)}93%{transform:translate(2px,-1px)}95%{transform:translate(-1px,2px)}97%{transform:translate(1px,-2px)}}
+.glitch{animation:glitch 8s infinite;}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--border2);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark glitch">LOOP</div>
+  <div class="header-tag">READING MODE</div>
+  <div class="api-status">● GROQ ACTIVE</div>
+</header>
+
+<!-- MENU -->
+<div class="view active" id="menuView">
+  <div class="menu-bg"></div>
+  <div class="menu-inner">
+    <div class="menu-logo glitch">LOOP — READING COMPREHENSION ENGINE</div>
+    <div class="menu-title">Choose Your Loop</div>
+    <div class="menu-sub">Read the case. Answer the questions. Information is all you keep.</div>
+    <div class="menu-stats">
+      <div class="mstat"><div class="mstat-val" id="statTotal">0</div><div class="mstat-lbl">CASES</div></div>
+      <div class="mstat"><div class="mstat-val" id="statDone">0</div><div class="mstat-lbl">COMPLETED</div></div>
+      <div class="mstat"><div class="mstat-val">MC + AI</div><div class="mstat-lbl">QUESTION TYPES</div></div>
+    </div>
+    <div class="stories-grid" id="storiesGrid"></div>
+  </div>
+</div>
+
+<!-- STORY -->
+<div class="view" id="storyView">
+  <div style="position:relative;z-index:1;">
+    <div id="storyInner" style="max-width:860px;margin:0 auto;padding:40px 32px 80px;">
+      <div class="back-row">
+        <span class="back" id="storyBackBtn" onclick="goMenu()">← BACK TO CASES</span>
+        <span class="resume-btn" id="resumeBtn" onclick="resumeQuiz()">RESUME QUIZ →</span>
+      </div>
+      <div class="sv-eyebrow">
+        <span id="sv-num"></span>
+        <span class="ctag" id="sv-tag"></span>
+      </div>
+      <div class="sv-title" id="sv-title"></div>
+      <div class="sv-meta" id="sv-meta"></div>
+      <div class="story-box" id="sv-body"></div>
+      <button class="begin-btn" id="beginBtn" onclick="beginQuiz()">BEGIN QUESTIONING →</button>
+    </div>
+  </div>
+</div>
+
+<!-- QUIZ -->
+<div class="view" id="quizView">
+  <div style="position:relative;z-index:1;">
+    <div style="max-width:760px;margin:0 auto;padding:40px 32px 80px;">
+      <div class="quiz-nav">
+        <span class="quiz-back-text" onclick="viewStoryFromQuiz()">← READ CASE</span>
+        <span class="quiz-abandon" onclick="goMenu()">ABANDON ✕</span>
+      </div>
+      <div class="qprog-bar"><div class="qprog-fill" id="qprog" style="width:0%"></div></div>
+      <div class="quiz-hdr-lbl">CASE EXAMINATION</div>
+      <div class="quiz-hdr-title" id="qTitle"></div>
+      <div id="qContainer"></div>
+      <button class="submit-btn" id="submitBtn" onclick="submitQuiz()">FILE REPORT →</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div class="view" id="resultsView">
+  <div class="menu-bg"></div>
+  <div style="position:relative;z-index:1;">
+    <div style="max-width:640px;margin:0 auto;padding:60px 32px 80px;text-align:center;">
+      <div class="res-ring"><div class="res-score" id="resScore">—</div></div>
+      <div class="res-title" id="resTitle"></div>
+      <div class="res-sub" id="resSub"></div>
+      <div class="res-breakdown" id="resBreakdown"></div>
+      <div class="res-btns">
+        <button class="rbtn prim" onclick="goMenu()">← BACK TO CASES</button>
+        <button class="rbtn" id="retryBtn">TRY AGAIN</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// GROQ API KEY — replace with your key from console.groq.com
+// ═══════════════════════════════════════════════════════
+const GROQ_API_KEY = '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'; // ← paste your key here
+
+// ═══════════════════════════════════════════════════════
+// STORIES
+// ═══════════════════════════════════════════════════════
+const STORIES = [
+{
+  id:0, title:'The Hargrove Incident',
+  setting:'English Country Estate, 1962',
+  desc:"A shipping magnate found dead. Cardiac arrest — officially. But the investigator who's seen it before knows better.",
+  tags:['POISON','FRAUD','COUNTRY ESTATE'], difficulty:'med',
+  body:`<p class="drop">Victor Hargrove, patriarch of Hargrove Shipping, died alone in his study on the evening of November 14th, 1962. The family physician, Dr. Sandra Wu, signed the death certificate within the hour: cardiac arrest. Victor was sixty-two, heavy-built, a cigar man. Nobody argued.</p>
+<p>But investigators who examined the body noted something unusual. Beneath the faint smell of aged oak whiskey, a bitter odour lingered in the glass. Laboratory analysis would later confirm <strong>aconitine</strong> — a plant-derived compound extracted from monkshood. It mimics the symptoms of a heart attack almost perfectly. It leaves no obvious visible trace. Administered correctly, it kills within hours.</p>
+<p>The study was Victor's domain: shelves of financial ledgers, a leather chair, a half-finished whiskey left untouched on the desk. A torn fragment of notepaper in the wastebasket read: <em>"...lix owes me everything. He knows what happens if—"</em> The rest had been burned.</p>
+<p>Behind a copy of <em>The Count of Monte Cristo</em> on the bookshelf, investigators found a hidden lever. It revealed a vault. Inside: a ledger with a column marked <strong>"F.C. — OUTSTANDING: £240,000."</strong> The entry had been crossed out three times and re-entered, stretching back two years.</p>
+<p>Felix Crane, Victor's business partner, had been in the library that evening. The household cook, Vera Solano, reported something she had been reluctant to mention: Felix had entered the kitchen alone, said he needed something for Victor's drink, and had opened the bitters cabinet himself. He knew exactly where to look.</p>
+<p>In the library fireplace, someone had burned documents recently. Among the barely-legible fragments: a solicitor's letterhead and the phrase <em>"hereby amend the beneficiary to..."</em></p>
+<p>Victor had been about to expose Felix. The debt was never repaid. The will had been altered. And one man in that house knew exactly which whiskey glass belonged to Victor Hargrove.</p>`,
+  questions:[
+    {type:'mc',q:'What substance was found in Victor Hargrove\'s whiskey glass?',
+     opts:['Cyanide — colourless and fast-acting','Aconitine — a plant compound that mimics cardiac arrest','Arsenic — detected by a bitter taste in the stomach','Digoxin — a heart medication in overdose'],
+     ans:1, expl:'The text states "Laboratory analysis would later confirm aconitine — a plant-derived compound extracted from monkshood. It mimics the symptoms of a heart attack almost perfectly."'},
+    {type:'mc',q:'What did the column "F.C. — OUTSTANDING: £240,000" in Victor\'s vault ledger suggest?',
+     opts:['Felix had been overpaying Victor for years','Victor owed Felix money from a failed venture','Felix had a substantial unpaid debt to Victor that was never settled','The amount referred to Victor\'s estate value, not a debt'],
+     ans:2, expl:'The ledger showed the £240,000 entry "crossed out three times and re-entered, stretching back two years" — indicating Felix\'s debt was repeatedly ignored and never actually paid.'},
+    {type:'mc',q:'Why is the detail about Felix knowing "exactly where to look" in the kitchen significant?',
+     opts:['It proves Felix visited the kitchen regularly and had no suspicious motive','It shows Felix had prior knowledge of where the bitters were kept, suggesting premeditation','It confirms Felix was trying to help Victor by preparing his drink','It suggests Vera Solano was working with Felix'],
+     ans:1, expl:'Felix went to the kitchen alone, said he needed something for Victor\'s drink, and "knew exactly where to look" for the bitters — suggesting this was not a spontaneous visit but a planned action.'},
+    {type:'mc',q:'What does the torn note fragment — "...lix owes me everything. He knows what happens if—" — most likely reveal?',
+     opts:['Victor planned to forgive Felix\'s debt entirely as a gesture of goodwill','Victor was preparing to expose or threaten Felix unless the £240,000 debt was repaid','Felix had written the note himself to frame another suspect','The note referred to a different person entirely — "lix" is not Felix'],
+     ans:1, expl:'"...lix owes me everything. He knows what happens if—" is almost certainly "Fe-lix." Victor was composing a threat — he planned to expose Felix unless the debt was settled. That gave Felix an urgent motive.'},
+    {type:'mc',q:'What do the burned documents in the fireplace — with the phrase "hereby amend the beneficiary to..." — suggest about the crime?',
+     opts:['Victor was updating charitable donation records on the night he died','Someone had recently altered Victor\'s will and destroyed evidence of the change','Felix had been legally awarded the estate in a court settlement','The documents were routine business contracts unrelated to the murder'],
+     ans:1, expl:'A solicitor\'s letterhead plus "hereby amend the beneficiary to..." in the fireplace strongly implies Victor\'s will had been tampered with. Someone needed to destroy the evidence of who now stood to inherit.'},
+    {type:'long',q:"The story presents several separate pieces of evidence that together point to Felix Crane as the killer. Choose three specific pieces of evidence from the text and explain how each one, individually and together, builds the case against him."}
+  ]
+},
+{
+  id:1, title:'Signal Lost',
+  setting:'Vatnajökull Radio Observatory, Iceland',
+  desc:"An astronomer found dead inside a locked signal booth. Three colleagues claim to have heard nothing. Someone is lying.",
+  tags:['LOCKED ROOM','SCIENCE','ISOLATION'], difficulty:'med',
+  body:`<p class="drop">Professor Yuki Hamada was found dead inside Signal Booth 3 at the Vatnajökull Radio Observatory at 11:47 PM on a Tuesday in January. The cause of death was strangulation. The door was locked. There were no signs of forced entry. No other way in or out.</p>
+<p>The lock, examined closely, told a different story. <strong>Scratch marks</strong> inside the ventilation slot were consistent with a thin metal probe inserted from outside. The lock had not been engaged from the inside — it had been manipulated from the corridor. The locked-room appearance was a deliberate staging.</p>
+<p>The signal terminal inside the booth had been broadcasting at the time of death. But its signal ID had been <strong>manually overwritten</strong> — a process that required senior-level access permissions. Only two people at the observatory had that clearance: Professor Hamada herself, and Dr. Erik Brandt, the senior astronomer.</p>
+<p>Badge access logs showed Brandt's keycard had been used in the corridor outside Booth 3 at <strong>21:34</strong>. Brandt had told the investigating officers he was in his office all evening.</p>
+<p>In storage, a spare keycard for Booth 3 was found missing from its numbered hook — last signed out by <em>Brandt</em>, two weeks prior, never returned. He possessed a second card that could lock the booth from outside.</p>
+<p>Sol Okafor, a PhD student working under Brandt, described what Hamada had shown him the previous week: a side-by-side comparison of Brandt's published signal data against the raw observatory recordings. The discrepancies were extensive. <strong>Nine years of fabricated data</strong> — published in twelve major journals and cited hundreds of times.</p>
+<p>Hamada had known she was in danger. On a backup phone found in the canteen, her final text — sent to Sol at 9:28 PM — read: <em>"If I don't check in by 10pm, everything is in the red folder."</em> She had also activated a backup audio recorder inside the booth. The final four minutes of recording contained raised voices, then silence. Voice pattern analysis matched Brandt.</p>`,
+  questions:[
+    {type:'mc',q:'How was the door of Signal Booth 3 actually locked, according to the investigation?',
+     opts:['It was locked from the inside by Hamada herself before her death','It was wedged shut with equipment found inside the booth','It was manipulated from outside using a thin metal probe through the ventilation slot','It had malfunctioned and locked automatically at a set time'],
+     ans:2, expl:'The text states "Scratch marks inside the ventilation slot were consistent with a thin metal probe inserted from outside. The lock had not been engaged from the inside — it had been manipulated from the corridor."'},
+    {type:'mc',q:'What does the detail about the missing spare keycard reveal about the killer\'s planning?',
+     opts:['It shows the killer acted spontaneously and stole the card on the night of the murder','Brandt had signed out the spare keycard two weeks earlier and never returned it — giving him a way to lock the booth from outside','The missing card proves someone other than Brandt accessed the booth','It suggests Hamada had given Brandt the card voluntarily'],
+     ans:1, expl:'Brandt had signed out the spare keycard for Booth 3 two weeks before the murder and never returned it — meaning he had pre-planned access to lock the booth from outside, pointing to premeditation.'},
+    {type:'mc',q:'Why did Yuki Hamada activate a backup audio recorder before her meeting with Brandt?',
+     opts:['It was standard observatory protocol for all technical meetings','She was documenting the signal fabrication and needed a record','She knew she was meeting someone dangerous and wanted a record in case something happened','She had forgotten to turn it off from a previous session'],
+     ans:2, expl:'Hamada\'s final text said "If I don\'t check in by 10pm, everything is in the red folder" — she anticipated danger. The recorder, like the text, was deliberate precaution.'},
+    {type:'mc',q:'What does the scale of Brandt\'s fabricated data — nine years, twelve journals, hundreds of citations — tell us about his motive for murder?',
+     opts:['The fabrication was minor and Brandt had little reason to fear exposure','Brandt had only recently begun falsifying data and thought it could be quietly corrected','The extent of the fraud meant that exposure would destroy his entire career, reputation, and livelihood — giving him a powerful motive to silence Hamada','The data fabrication was unrelated to the murder and Brandt had a separate grievance with Hamada'],
+     ans:2, expl:'Nine years across twelve major journals — if Hamada\'s evidence went public, Brandt\'s entire professional identity collapsed. The scale of what he stood to lose explains the extreme response.'},
+    {type:'mc',q:'Why is it significant that Hamada\'s backup phone was found in the canteen rather than on her person?',
+     opts:['It proves Hamada was disorganised and frequently forgot her belongings','Hamada deliberately left the phone somewhere separate so it would survive if an attacker took her things','The canteen was the only area with a signal strong enough to send a text','It proves someone stole her primary phone before the attack'],
+     ans:1, expl:'Leaving the backup phone in the canteen — not on her person — was deliberate contingency planning. If an attacker took everything from her, the phone (and her message to Sol) would survive untouched.'},
+    {type:'long',q:"The story describes a 'locked room' mystery. Explain how the investigator proves that the locked room was staged, and why this distinction — between a room locked from the inside versus the outside — matters so much to the case."}
+  ]
+},
+{
+  id:2, title:"The Cartographer's Last Map",
+  setting:'Venice, 1887',
+  desc:'A celebrated cartographer is poisoned at his own dinner party. His final map — rumoured to mark a lost gold hoard — vanishes the same night.',
+  tags:['PERIOD PIECE','POISON','TREASURE'], difficulty:'med',
+  body:`<p class="drop">Signor Aldo Farini, the most celebrated cartographer in Europe, died at his own dinner table in Venice on the evening of September 3rd, 1887. Four guests were present. The wine had been poisoned. <strong>Arsenic</strong> was later identified in the residue of Aldo's glass — but critically, not in the decanter. The poison had been introduced into the glass before pouring, not from the shared bottle. Someone knew exactly which seat at that table belonged to Aldo Farini.</p>
+<p>A moved candlestick — its original wax ring still visible on the tablecloth — suggested someone had adjusted their sight-lines across the table during dinner, ensuring a clear view of when Aldo drank. Beneath Aldo's plate, investigators found a small <strong>wax seal</strong> bearing the symbol of the Venetian Collectors' Society — a calling card placed deliberately.</p>
+<p>In Aldo's private study, the central map frame was empty. Dust outlines marked where the map had hung. The impression indicated a large piece: approximately <strong>80 by 120 centimetres</strong>. It had been removed recently — and rumour had already spread that the map charted the location of a lost Ottoman gold hoard.</p>
+<p>On Aldo's writing desk, investigators found a draft letter begun that morning: <em>"My dearest Giulia — I have decided to give the map to the Church rather than sell it. I fear Frau Voss's interest has grown dangerous."</em> The letter had never been sent.</p>
+<p>Mathilde Voss, a German art collector, had specifically requested the east wing guest room — the only room in the estate with a direct view of the study window. When her luggage was searched, investigators found a <strong>glass vial</strong>, traces of arsenic visible along its inner rim. A pair of white gloves lay beneath her winter coat, faint discolouration consistent with handling arsenic powder.</p>
+<p>Aldo had recognised the danger. His final letter made clear he had chosen to deny Mathilde the map. She had, it appeared, decided she would take it anyway.</p>`,
+  questions:[
+    {type:'mc',q:'How was the arsenic administered to Aldo Farini, and why is this method significant?',
+     opts:['It was added to the decanter, meaning all guests were at risk','It was slipped into the kitchen during preparation of the meal','It was introduced into Aldo\'s specific glass before pouring, meaning the killer knew his seat','It was mixed into a dessert wine served only to Aldo'],
+     ans:2, expl:'The text states "the poison had been introduced into the glass before pouring, not from the shared bottle — someone knew exactly which seat at that table belonged to Aldo Farini," showing targeted, premeditated poisoning.'},
+    {type:'mc',q:'What does the draft letter on Aldo\'s desk reveal about his relationship with Mathilde Voss?',
+     opts:['Aldo planned to sell the map to Mathilde for a significant sum','Aldo had decided to give the map away specifically to prevent Mathilde from obtaining it, fearing her interest had grown dangerous','Aldo was asking Mathilde to protect the map on his behalf','The letter was unrelated to Mathilde and concerned a different collector'],
+     ans:1, expl:'Aldo wrote "I fear Frau Voss\'s interest has grown dangerous" and decided to give the map to the Church rather than sell it — directly trying to deny Mathilde what she wanted.'},
+    {type:'mc',q:'Why is Mathilde\'s choice of the east wing guest room considered suspicious?',
+     opts:['It was the most expensive room, suggesting wealth and entitlement','The east wing room was the only one with a direct view of Aldo\'s private study','The east wing was known to be quieter and harder to monitor','She had stayed in that room before and was familiar with the layout'],
+     ans:1, expl:'The text specifically notes the east wing was "the only room in the estate with a direct view of the study window" — giving Mathilde the ability to observe when the study was empty and access it.'},
+    {type:'mc',q:'What does the moved candlestick at the dinner table suggest about the killer\'s behaviour during the meal?',
+     opts:['It shows there was a struggle at the table before Aldo was poisoned','Someone had accidentally knocked it while reaching across the table','The killer deliberately repositioned the candlestick to get a clear sight-line to watch the exact moment Aldo drank','Aldo moved it himself for more light while reading at the table'],
+     ans:2, expl:'"A moved candlestick — its original wax ring still visible on the tablecloth — suggested someone had adjusted their sight-lines across the table during dinner, ensuring a clear view of when Aldo drank." The killer needed to confirm the moment.'},
+    {type:'mc',q:'What does the wax seal bearing the Venetian Collectors\' Society symbol — found deliberately placed beneath Aldo\'s plate — suggest?',
+     opts:['It was a standard decorative place setting used at formal Venetian dinners','Aldo left it himself as a coded message about who he suspected','The seal was a deliberate calling card left by someone connected to the Society, indicating the murder was planned by a member','The seal proves the dinner was secretly organised by the Collectors\' Society'],
+     ans:2, expl:'"A calling card placed deliberately" — it was intentionally left under the plate. Someone with a connection to the Venetian Collectors\' Society wanted the murder attributed — or wanted to send a message.'},
+    {type:'long',q:"Aldo Farini anticipated that something might happen to him, yet was still killed. Using evidence from the text, explain what steps Aldo took to protect himself or his map — and why they ultimately failed."}
+  ]
+},
+{
+  id:3, title:'The Sunken Meridian',
+  setting:'Research Submarine, North Atlantic',
+  desc:"A marine biologist is found dead mid-dive. The submarine is sealed. The killer is still on board — and the air is running out.",
+  tags:['LOCKED ROOM','CORPORATE','PRESSURE'], difficulty:'hard',
+  body:`<p class="drop">At 06:00 on a February morning, three hundred metres below the surface of the North Atlantic, Dr. Petra Lenz descended into the water for what was scheduled as a routine mineral survey dive. By 06:22, she was dead. Her oxygen line had been cut. The submarine had been sealed since 0600. There was no way off the vessel.</p>
+<p>Ship access logs showed that Rowan Beck, the onboard engineer, had entered the dive airlock at <strong>05:47</strong> — thirteen minutes before Petra's scheduled dive. Standard maintenance for airlock equipment was logged at 06:15. He had been there out of sequence, before anyone was supposed to be on the dive deck.</p>
+<p>In Rowan's toolbox, investigators found a line cutter that had been modified: its blade sharpened beyond standard specification, fitted with a <strong>silencing grip</strong> designed to muffle vibration. This was not factory equipment. It had been prepared for a specific purpose.</p>
+<p>Petra, it emerged, had known something was wrong. Her personal data log contained a chilling entry written the previous day: <em>"RB keeps reviewing my dive schedule. He asked again about air consumption rates. Something is wrong."</em> She had also told Dr. Kai Chen, her research colleague, that if anything happened to her, he should check Rowan's toolbox.</p>
+<p>Alinta Walsh, the data analyst, had been awake at 5 AM. She reported hearing heavy boots in the airlock corridor. <strong>Rowan was the only member of the crew who wore steel-cap boots</strong> on board.</p>
+<p>The motive took shape through the sonar data Petra had been preparing to transmit. Her final sweep had identified a massive thermal vent field at that depth — rich in rare earth minerals worth <strong>hundreds of billions of dollars</strong> over twenty years. She had queued the data for transmission to the surface at 07:00. Hadley Nourse, a corporate observer sent by Meridian Corp, confirmed under pressure that the company had known about the discovery and had not wanted the data made public.</p>
+<p>Petra had left encrypted backups. Her discovery was going to be published regardless. Rowan had been paid to stop her. He had miscalculated the depth pressure. He had not meant to kill her.</p>`,
+  questions:[
+    {type:'mc',q:"What does the detail about Rowan's modified cutting tool reveal about the nature of the crime?",
+     opts:['The modification was a standard upgrade used by all engineers on deep-water vessels','The tool had been illegally imported, suggesting outside involvement','The modification — silenced blade, sharpened edge — indicates the tool was prepared in advance for a specific deliberate purpose','The tool was identical to standard equipment and is therefore not suspicious'],
+     ans:2, expl:'A blade "sharpened beyond standard specification, fitted with a silencing grip designed to muffle vibration" and described as "not factory equipment — prepared for a specific purpose" indicates premeditation, not accident.'},
+    {type:'mc',q:"Why did Petra Lenz encrypt her data and leave a message for Dr. Chen about Rowan's toolbox?",
+     opts:['She was following standard protocol for sensitive research data','She suspected Rowan might tamper with her research files rather than harm her physically','She had already concluded Rowan intended to harm her and was preparing contingencies in case something happened','She was keeping the data private until she could sell it independently'],
+     ans:2, expl:'Petra\'s log said "Something is wrong" about Rowan\'s behaviour — she was preparing contingencies (encrypted backups, a message to Chen) because she suspected danger was imminent.'},
+    {type:'mc',q:'What was the corporate motive behind Petra\'s murder?',
+     opts:['Meridian Corp wanted to claim ownership of the submarine and its research','Petra had been stealing rare earth samples to sell privately','Petra had discovered a massively valuable mineral field and was about to publish it as public domain — which Meridian Corp wanted to suppress','Rowan acted alone out of jealousy over academic credit'],
+     ans:2, expl:'Hadley Nourse confirmed Meridian Corp had known about Petra\'s discovery — a thermal vent field worth hundreds of billions — and had not wanted the data made public.'},
+    {type:'mc',q:"What does Petra's log entry — 'RB keeps reviewing my dive schedule. He asked again about air consumption rates.' — reveal about Rowan's preparation for the crime?",
+     opts:['Rowan was conducting routine safety checks as part of his engineering duties','Rowan\'s focus on Petra\'s specific dive timing and air supply was reconnaissance — he was calculating exactly when and how to disable her oxygen','Petra was overly suspicious of normal workplace behaviour','The entry was written after Rowan had already tampered with the equipment'],
+     ans:1, expl:'Reviewing a colleague\'s dive schedule and air consumption rates is not routine curiosity for an engineer. Rowan needed to know exactly when Petra would be underwater and how long her supply would last — to time the sabotage precisely.'},
+    {type:'mc',q:'What was the role of Hadley Nourse in the events surrounding Petra\'s death?',
+     opts:['Hadley was a neutral observer with no prior knowledge of Meridian Corp\'s intentions regarding the data','Hadley had reported Rowan\'s suspicious behaviour to the surface before the murder','Hadley was sent by Meridian Corp and, under pressure, confirmed the company had known about the discovery and had not wanted it made public','Hadley had directly hired Rowan to sabotage Petra\'s equipment'],
+     ans:2, expl:'Hadley Nourse "confirmed under pressure that the company had known about the discovery and had not wanted the data made public." This linked Meridian Corp directly to the suppression — and made Rowan\'s payment a corporate decision.'},
+    {type:'long',q:"The story ends by noting Rowan 'had not meant to kill her.' Does this fact change how morally responsible he is for Petra's death? Use evidence from the text to support your argument."}
+  ]
+},
+{
+  id:4, title:"The Deep Harbour Affair",
+  setting:'Pacific Northwest Shipping Port, 1998',
+  desc:"A port customs officer is found dead in a sealed container. The manifest says it was empty. Three dock workers claim they saw nothing.",
+  tags:['CONSPIRACY','SMUGGLING','PORT'], difficulty:'hard',
+  body:`<p class="drop">Customs Officer Diane Rao was found at 4:30 AM on a March morning inside Container 7-Bravo, which the shipping manifest listed as empty. She had been dead for approximately six hours. The container doors had been sealed from outside with a standard tamper lock. She had a radio. It had been disabled — the battery removed.</p>
+<p>Rao had been investigating Container 7-Bravo independently, following a tip she had received three days earlier. Her shift supervisor, Marcus Fell, had told her to drop it: <em>"The manifest clears it. Don't go creating problems that aren't there."</em> She had not dropped it.</p>
+<p>Inside the container, behind a false aluminium wall, investigators found a cache of equipment consistent with <strong>counterfeit hardware components</strong> — the kind used in aviation systems. Each unit carried falsified certification stamps from a manufacturer that had been dissolved in 1991.</p>
+<p>Dock foreman Leo Adjei had signed off on Container 7-Bravo's transit paperwork at 22:15. His copy was clean. But the dock terminal system showed the container's routing had been <strong>manually changed</strong> twice that evening — both changes were traced to a terminal accessed with Adjei's login credentials. Adjei claimed he had not been at that terminal after 21:00.</p>
+<p>A security camera at Gate 9, supposed to cover the container yard, had recorded nothing from 21:00 to 03:00. The camera had not malfunctioned. Its recording had been <strong>paused remotely</strong> from an admin account — an account held by the port's IT manager, Soren Kliff.</p>
+<p>Kliff and Adjei had worked together at a previous port facility in 1994. The port at that facility had been investigated for exactly the same kind of counterfeit parts smuggling. The investigation had been dropped due to insufficient evidence. Two witnesses had recanted their statements in the weeks before trial.</p>
+<p>Rao had reached the same conclusion. Her notebook, found in her jacket, contained a single line written in the margin of her case notes: <em>"Kliff controls the cameras. Adjei controls the paper. Ask who controls them both."</em></p>`,
+  questions:[
+    {type:'mc',q:"What was the significance of the battery being removed from Rao's radio?",
+     opts:['The battery had died naturally — radios often fail in sealed metal containers','It showed Rao had turned off her radio to avoid being found while investigating secretly','The battery was removed by someone else — disabling her ability to call for help and indicating she was trapped deliberately','The radio battery removal was standard lockdown procedure when a container is sealed'],
+     ans:2, expl:'The battery was removed, not dead — a subtle but crucial distinction. Rao was a professional who would not voluntarily disable her own emergency communication. Someone else removed it to trap her.'},
+    {type:'mc',q:"What does the 1994 connection between Kliff and Adjei suggest about the crime?",
+     opts:['They were long-time friends and therefore trusted each other — which is normal','It suggests this was an isolated incident specific to the Pacific Northwest port','It implies this was a long-running criminal operation with an established pattern of evading investigation','It proves Fell had been involved since 1994 as well'],
+     ans:2, expl:'Both men had worked together at a previous port also investigated for counterfeit parts smuggling — and that investigation collapsed after witnesses recanted. The same operation, years later, in a new location.'},
+    {type:'mc',q:"What did Rao's final notebook entry reveal about her understanding of the conspiracy?",
+     opts:['She believed only one person was responsible and had already identified them','She had identified a two-person operation but knew a third, higher figure was coordinating both Kliff and Adjei','She was uncertain who was responsible and was still gathering preliminary evidence','She had concluded the evidence was insufficient and planned to drop the case'],
+     ans:1, expl:'"Kliff controls the cameras. Adjei controls the paper. Ask who controls them both." — Rao had identified the two visible operators but understood there was a third layer of control above both of them.'},
+    {type:'mc',q:"What is significant about Rao's supervisor Marcus Fell telling her to drop the investigation?",
+     opts:['It was routine management — supervisors often redirect officers away from low-priority cases','It was a standard safety precaution because the container yard was dangerous at night','It suggests Fell had a reason to protect Container 7-Bravo — his instruction to drop a legitimate lead points to possible involvement in the cover-up','It proves Fell was the third figure controlling Kliff and Adjei'],
+     ans:2, expl:'Fell\'s instruction — "The manifest clears it. Don\'t go creating problems that aren\'t there." — told Rao to trust the paperwork over her own investigation. Given that the paperwork was fraudulent, his advice conveniently protected the conspiracy.'},
+    {type:'mc',q:'What does the false aluminium wall inside Container 7-Bravo reveal about the sophistication of the smuggling operation?',
+     opts:['The wall was standard shipping reinforcement installed by the container manufacturer','It shows the smuggling was improvised and amateurish','A professionally constructed hidden wall inside a container officially listed as empty demonstrates a systematic, well-resourced operation — not opportunistic crime','The wall was built by Rao herself during a prior investigation to conceal evidence'],
+     ans:2, expl:'A concealed false aluminium wall built to hide counterfeit aviation components inside a container officially listed as empty points to a professional, premeditated smuggling structure — one that had clearly been operational for some time.'},
+    {type:'long',q:"Rao was warned by her supervisor to drop the investigation, yet she continued. What does the story suggest about the tension between following institutional orders and pursuing the truth? Use specific details from the text in your answer."}
+  ]
+},
+{
+  id:5, title:'The Glasshouse',
+  setting:'Contemporary Art Gallery, London',
+  desc:"A gallery director dies during a private viewing. The security system recorded the entire room. Nothing useful shows up — which is exactly the problem.",
+  tags:['ART WORLD','TECHNOLOGY','MISDIRECTION'], difficulty:'hard',
+  body:`<p class="drop">Director Helena Marsh died at 21:42 on a Friday evening in the main exhibition space of the Glasshouse Gallery, London. Cause of death: a single blunt force trauma to the back of the head. The gallery's security system had recorded the room from two angles, continuously, for the entire evening. Neither camera showed anyone strike her.</p>
+<p>What the cameras did show: at 21:38, Helena was standing alone in the room. At 21:43, a passing security guard found her on the floor. In between: four minutes in which nothing visible happened. The cameras had not been tampered with. The footage was uninterrupted.</p>
+<p>Forensic analysis of the room identified the <strong>murder weapon</strong> as a glass sculpture — <em>Untitled No. 7</em> — a piece owned by the gallery and displayed on a pedestal near the east wall. It had been replaced on the pedestal after the blow. The replacement was not quite correct: the sculpture's serial number, etched on its base, faced outward rather than inward as in all reference photographs. Someone had picked it up and put it down in a hurry.</p>
+<p>The gallery's motion sensors had recorded <strong>five people</strong> in the building between 21:00 and 22:00: Helena, two artists, a caterer, and Tobias Renn — Helena's deputy director. Tobias had submitted a report to the gallery board two weeks earlier alleging Helena had been <strong>selling stolen artworks</strong> through private channels, and that a collection worth £4.2 million had been systematically misattributed and sold below market value to a single private buyer.</p>
+<p>The buyer's identity: <strong>Renn's father-in-law.</strong></p>
+<p>Tobias stood to inherit the directorship if Helena was removed. If Helena survived the board investigation, she would have identified him as the one who had leaked. And she had told the caterer, minutes before her death, that she knew exactly who had reported her and that she planned to <em>"deal with it tonight."</em></p>
+<p>The cameras had shown nothing because they showed exactly what they were pointed at. No one had looked at what was <em>just outside</em> the frame.</p>`,
+  questions:[
+    {type:'mc',q:'Why is the incorrectly replaced sculpture significant as evidence?',
+     opts:['It proves the sculpture was stolen and replaced with a replica','It shows the murder weapon had been wiped clean and carefully returned — but the killer made a small verifiable error in its placement','It suggests the sculpture fell accidentally and was picked up by Helena before she died','It proves an outside intruder entered the gallery and left in a hurry'],
+     ans:1, expl:'The sculpture was the murder weapon, replaced after the blow — but its serial number faced outward instead of inward. "Someone had picked it up and put it down in a hurry" — a deliberate cover-up with a telltale mistake.'},
+    {type:'mc',q:"What was the conflict of interest in Tobias Renn's position as both whistleblower and murder suspect?",
+     opts:['There was no conflict — his whistleblowing was a sign of integrity regardless of what followed','Tobias had reported Helena for fraud, but would personally benefit from her death since he stood to inherit the directorship, and the artwork buyer was his own father-in-law','Tobias had been bribed by Helena to stay silent and was trying to protect himself','Tobias had no personal connection to the artwork buyer and reported out of principle'],
+     ans:1, expl:'Tobias reported Helena for selling art to a buyer who was his own father-in-law — and stood to take her directorship if she was removed. His report may have served his personal interests as much as justice.'},
+    {type:'mc',q:"What does the story's final line — 'No one had looked at what was just outside the frame' — most likely mean?",
+     opts:['The cameras had a blind spot that was accidentally missed by investigators','The killer had acted in the literal gap at the edge of the camera frame, making the footage technically accurate but misleading','The cameras had been secretly switched to a looped recording','Investigators focused too much on technical evidence and ignored witness accounts'],
+     ans:1, expl:'The final line is the key: the cameras recorded accurately, but the killer acted in the space the cameras didn\'t cover. The "problem" with the footage was not tampering — it was that everyone assumed the cameras showed everything.'},
+    {type:'mc',q:"What do Helena's words to the caterer — that she knew who had reported her and planned to 'deal with it tonight' — suggest about the motive for her murder?",
+     opts:['Helena was bluffing and had no real information about who had reported her','Helena was planning to fire the caterer that evening over an unrelated dispute','Helena had identified Tobias as the leak and intended to confront him — giving him urgent reason to act before she could','Helena planned to confess to the board herself and was warning the caterer to stay out of it'],
+     ans:2, expl:'Helena planned to "deal with it tonight" — meaning a confrontation with Tobias. If Tobias knew she had identified him, he faced exposure, disgrace, and the loss of both his position and his father-in-law\'s illegal advantage. That made the timing critical.'},
+    {type:'mc',q:'What does the motion sensor data — recording exactly five people in the building — contribute to the investigation?',
+     opts:['It proves an outside intruder had disabled the sensors before entering','It eliminates the possibility of an unknown killer and confirms the murderer was one of the five named individuals in the building','It shows the sensors were unreliable and the data cannot be trusted','It proves Tobias was the only person physically near Helena at the time of death'],
+     ans:1, expl:'The motion sensors recorded exactly five people — no unaccounted persons. This is critical: it means no unknown third party entered the building. The killer was definitively one of the five named individuals already inside.'},
+    {type:'long',q:"The story is built around a piece of technology — the security system — that appears to exonerate everyone but actually reveals nothing. What does this suggest about how we interpret surveillance footage and technological evidence in criminal investigations? Use details from the story to support your answer."}
+  ]
+}
+];
+
+// ═══════════════════════════════════
+// STATE
+// ═══════════════════════════════════
+let groqKey = GROQ_API_KEY;
+let currentId = null;
+let qState = {};
+let completions = {};
+let inQuiz = false; // tracks if we navigated to story from within a quiz
+
+// ═══════════════════════════════════
+// NAV
+// ═══════════════════════════════════
+function show(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function goMenu(){
+  inQuiz = false;
+  renderMenu();
+  show('menuView');
+}
+
+// Navigate from quiz → story text (preserves quiz state)
+function viewStoryFromQuiz(){
+  inQuiz = true;
+  const s = STORIES[currentId];
+  // populate story view without resetting
+  document.getElementById('sv-num').textContent = caseLabel(currentId);
+  const tag = document.getElementById('sv-tag');
+  tag.textContent = s.difficulty.toUpperCase();
+  tag.className = `ctag diff-${s.difficulty}`;
+  document.getElementById('sv-title').textContent = s.title;
+  document.getElementById('sv-meta').innerHTML = `<span>${s.setting}</span><span>${s.tags.join(' · ')}</span><span>${s.questions.length} questions</span>`;
+  document.getElementById('sv-body').innerHTML = s.body;
+  // show resume button, hide begin button
+  document.getElementById('beginBtn').style.display = 'none';
+  document.getElementById('resumeBtn').classList.add('vis');
+  document.getElementById('storyBackBtn').onclick = () => { inQuiz = false; goMenu(); };
+  show('storyView');
+}
+
+// Resume quiz from story text view
+function resumeQuiz(){
+  inQuiz = false;
+  document.getElementById('beginBtn').style.display = '';
+  document.getElementById('resumeBtn').classList.remove('vis');
+  document.getElementById('storyBackBtn').onclick = goMenu;
+  show('quizView');
+}
+
+// ═══════════════════════════════════
+// MENU
+// ═══════════════════════════════════
+function caseLabel(id){
+  const n = String(id + 1).padStart(2,'0');
+  const t = String(STORIES.length).padStart(2,'0');
+  return `CASE ${n} / ${t}`;
+}
+
+function renderMenu(){
+  document.getElementById('statTotal').textContent = STORIES.length;
+  document.getElementById('statDone').textContent = Object.keys(completions).length;
+  const grid = document.getElementById('storiesGrid');
+  grid.innerHTML = '';
+  STORIES.forEach(s => {
+    const c = completions[s.id];
+    const n = String(s.id + 1).padStart(2,'0');
+    const d = document.createElement('div');
+    d.className = 'scard' + (c ? ' done' : '');
+    d.innerHTML = `
+      <div class="card-num">
+        <span>CASE ${n}</span>
+        ${c ? `<span class="score-pill">${c.score}%</span>` : `<span class="ctag diff-${s.difficulty}">${s.difficulty.toUpperCase()}</span>`}
+      </div>
+      <div class="card-title">${s.title}</div>
+      <div class="card-setting">${s.setting}</div>
+      <div class="card-desc">${s.desc}</div>
+      <div class="card-tags">${s.tags.map(t=>`<span class="ctag">${t}</span>`).join('')}</div>
+      <div class="card-play">READ →</div>`;
+    d.addEventListener('click', () => openStory(s.id));
+    grid.appendChild(d);
+  });
+}
+
+// ═══════════════════════════════════
+// STORY VIEW
+// ═══════════════════════════════════
+function openStory(id){
+  currentId = id;
+  inQuiz = false;
+  const s = STORIES[id];
+  document.getElementById('sv-num').textContent = caseLabel(id);
+  const tag = document.getElementById('sv-tag');
+  tag.textContent = s.difficulty.toUpperCase();
+  tag.className = `ctag diff-${s.difficulty}`;
+  document.getElementById('sv-title').textContent = s.title;
+  document.getElementById('sv-meta').innerHTML = `<span>${s.setting}</span><span>${s.tags.join(' · ')}</span><span>${s.questions.length} questions</span>`;
+  document.getElementById('sv-body').innerHTML = s.body;
+  document.getElementById('beginBtn').style.display = '';
+  document.getElementById('beginBtn').textContent = completions[id] ? 'RETRY EXAMINATION →' : 'BEGIN QUESTIONING →';
+  document.getElementById('resumeBtn').classList.remove('vis');
+  document.getElementById('storyBackBtn').onclick = goMenu;
+  show('storyView');
+}
+
+// ═══════════════════════════════════
+// QUIZ
+// ═══════════════════════════════════
+function beginQuiz(){
+  const s = STORIES[currentId];
+  qState = {id:currentId, answers:{}, aiScores:{}, mcRight:0, mcDone:0, submitted:false};
+  document.getElementById('qTitle').textContent = s.title;
+  document.getElementById('qprog').style.width = '0%';
+  const container = document.getElementById('qContainer');
+  container.innerHTML = '';
+  document.getElementById('submitBtn').classList.remove('vis');
+  s.questions.forEach((q, qi) => container.appendChild(buildQ(q, qi, s.questions.length)));
+  // If no MC questions at all, show submit immediately
+  const mcCount = s.questions.filter(q => q.type === 'mc').length;
+  if(mcCount === 0) document.getElementById('submitBtn').classList.add('vis');
+  show('quizView');
+}
+
+function buildQ(q, qi, total){
+  const block = document.createElement('div');
+  block.className = 'q-block';
+  block.id = `qb-${qi}`;
+  const kind = q.type === 'mc' ? 'MULTIPLE CHOICE' : 'LONG ANSWER';
+  block.innerHTML = `<div class="q-num">QUESTION ${qi+1} OF ${total}</div>
+    <div class="q-txt">${q.q}<span class="q-kind">${kind}</span></div>`;
+  if(q.type === 'mc'){
+    const opts = document.createElement('div');
+    opts.className = 'opts';
+    q.opts.forEach((opt, oi) => {
+      const o = document.createElement('div');
+      o.className = 'opt'; o.dataset.qi = qi; o.dataset.oi = oi;
+      o.innerHTML = `<div class="opt-k">${['A','B','C','D'][oi]}</div><div class="opt-t">${opt}</div>`;
+      o.addEventListener('click', () => pickOpt(qi, oi));
+      opts.appendChild(o);
+    });
+    const fb = document.createElement('div');
+    fb.className = 'q-fb'; fb.id = `fb-${qi}`;
+    block.appendChild(opts); block.appendChild(fb);
+  } else {
+    const wrap = document.createElement('div');
+    wrap.className = 'la-wrap';
+    wrap.innerHTML = `<textarea class="la-ta" id="la-${qi}" placeholder="Write your answer here..."></textarea>
+      <button class="la-check" id="lc-${qi}" onclick="checkLA(${qi})"><span id="lcs-${qi}" style="display:none" class="spin"></span><span id="lcl-${qi}">CHECK WITH AI</span></button>
+      <div class="la-fb" id="la-fb-${qi}"></div>`;
+    block.appendChild(wrap);
+  }
+  return block;
+}
+
+function pickOpt(qi, oi){
+  if(qState.submitted || qState.answers[qi] !== undefined) return;
+  const s = STORIES[currentId];
+  const q = s.questions[qi];
+  qState.answers[qi] = oi;
+  document.querySelectorAll(`[data-qi="${qi}"]`).forEach(o => {
+    o.classList.add('locked');
+    const i = parseInt(o.dataset.oi);
+    if(i === q.ans) o.classList.add('ok');
+    else if(i === oi && oi !== q.ans) o.classList.add('ng');
+  });
+  const fb = document.getElementById(`fb-${qi}`);
+  fb.classList.add('vis');
+  fb.style.color = oi === q.ans ? 'var(--correct)' : 'var(--wrong)';
+  fb.textContent = (oi === q.ans ? '✓ CORRECT — ' : '✗ INCORRECT — ') + q.expl;
+  if(oi === q.ans) qState.mcRight++;
+  qState.mcDone++;
+  updateProg(); checkDone();
+}
+
+function updateProg(){
+  const s = STORIES[currentId];
+  const total = s.questions.length;
+  const done = qState.mcDone + Object.keys(qState.aiScores).length;
+  document.getElementById('qprog').style.width = Math.round(done / total * 100) + '%';
+}
+
+function checkDone(){
+  const s = STORIES[currentId];
+  const mcTotal = s.questions.filter(q => q.type === 'mc').length;
+  if(qState.mcDone >= mcTotal) document.getElementById('submitBtn').classList.add('vis');
+}
+
+async function checkLA(qi){
+  const s = STORIES[currentId];
+  const q = s.questions[qi];
+  const answer = document.getElementById(`la-${qi}`).value.trim();
+  if(!answer) return;
+  const btn = document.getElementById(`lc-${qi}`);
+  const spin = document.getElementById(`lcs-${qi}`);
+  const lbl = document.getElementById(`lcl-${qi}`);
+  btn.disabled = true; spin.style.display = 'inline-block'; lbl.textContent = 'GRADING...';
+  const prompt = `You are grading a reading comprehension answer for a student.
+Story: "${s.title}" — ${s.setting}
+Question: ${q.q}
+Student's Answer: "${answer}"
+Grade 1-10. Be honest but encouraging. Respond ONLY in this exact format:
+SCORE: [number]/10
+FEEDBACK: [one concise sentence]`;
+  try{
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${groqKey}`},
+      body:JSON.stringify({model:'llama3-8b-8192',max_tokens:100,temperature:0.3,messages:[{role:'user',content:prompt}]})
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    const sm = text.match(/SCORE:\s*(\d+)/i);
+    const fm = text.match(/FEEDBACK:\s*(.+)/i);
+    const score = sm ? parseInt(sm[1]) : null;
+    const feedback = fm ? fm[1].trim() : text;
+    const fb = document.getElementById(`la-fb-${qi}`);
+    fb.classList.add('vis');
+    const col = score >= 7 ? 'var(--correct)' : score >= 4 ? 'var(--warn)' : 'var(--wrong)';
+    fb.innerHTML = `<div class="la-score" style="color:${col}">${score !== null ? score+'/10' : '—'}</div><div class="la-comment">${feedback}</div>`;
+    qState.aiScores[qi] = score || 0;
+    document.getElementById(`la-${qi}`).disabled = true;
+    btn.style.display = 'none';
+  } catch(e){
+    const fb = document.getElementById(`la-fb-${qi}`);
+    fb.classList.add('vis');
+    fb.innerHTML = `<div class="la-score" style="color:var(--wrong)">ERROR</div><div class="la-comment">Could not reach Groq API. Check your key in the code (GROQ_API_KEY).</div>`;
+    btn.disabled = false; spin.style.display = 'none'; lbl.textContent = 'RETRY';
+  }
+  updateProg(); checkDone();
+}
+
+function submitQuiz(){
+  const s = STORIES[currentId];
+  const mcTotal = s.questions.filter(q => q.type === 'mc').length;
+  const mcPct = mcTotal > 0 ? Math.round(qState.mcRight / mcTotal * 100) : null;
+  const aiVals = Object.values(qState.aiScores);
+  const aiAvg = aiVals.length > 0 ? Math.round(aiVals.reduce((a,b) => a+b, 0) / aiVals.length * 10) : null;
+  let pct, disp;
+  if(mcPct !== null && aiAvg !== null){ pct = Math.round((mcPct + aiAvg) / 2); disp = pct + '%'; }
+  else if(mcPct !== null){ pct = mcPct; disp = mcPct + '%'; }
+  else { pct = aiAvg || 0; disp = (aiAvg || '—') + (aiAvg ? '%' : ''); }
+  completions[currentId] = {score: pct};
+  document.getElementById('resScore').textContent = disp;
+  const titles = ['Case Cold','Insufficient Evidence','Circumstantial','Strong Case','Case Closed ★'];
+  document.getElementById('resTitle').textContent = titles[Math.min(Math.floor(pct / 25), 4)];
+  document.getElementById('resSub').textContent = `${s.title} · ${s.setting}`;
+  const bd = document.getElementById('resBreakdown');
+  bd.innerHTML = '';
+  if(mcPct !== null) bd.innerHTML += `<div class="brow"><span class="brow-lbl">MULTIPLE CHOICE</span><span style="color:${mcPct>=70?'var(--correct)':'var(--wrong)'}">${qState.mcRight}/${mcTotal} CORRECT (${mcPct}%)</span></div>`;
+  if(aiAvg !== null) bd.innerHTML += `<div class="brow"><span class="brow-lbl">LONG ANSWER (AI)</span><span style="color:${aiAvg>=70?'var(--correct)':aiAvg>=40?'var(--warn)':'var(--wrong)'}">${aiAvg}%</span></div>`;
+  document.getElementById('retryBtn').onclick = () => openStory(currentId);
+  show('resultsView');
+}
+
+// ═══════════════════════════════════
+// INIT
+// ═══════════════════════════════════
+renderMenu();
+</script>
+</body>
+</html>
